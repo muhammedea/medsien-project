@@ -70,3 +70,26 @@ Mostly correct, for the fisrt step Schedule the queue, not just new arrivals. Al
      fits a server (strategy + tie-break)  → REQUEST_STARTED
      otherwise wait; drop if over queue length / max-wait policy
 ```
+
+## 2026-11-25: Clarification email
+
+- I have got the aswers from the Medsien team
+> 1. Execution model: Your plan works. Make single request per server the default so validate_run.py passes. Concurrent mode as described in Section 4 is a welcome extra but not required. If you build it, please explain the difference between the two modes briefly in your README.
+> 2. Scope of the servers: Yes, that's correct. Servers and requests are fully simulated: servers are configuration records and execution runs tick by tick in a deterministic engine. There are no real worker processes and no real HTTP traffic between the load balancer and the servers. 
+
+**Prompt:**
+> Ok I have got the answer from Medsien team:
+>
+> ... Answers in the email ...
+> 
+> I want to have swappable execution model. Your previous plan was good. Lets start with the engine plus CLI. Project structure will be like a backend folder and frontend folder at the top level. Backend Python FastAPI, frontend Vite React. Create the initial design at docs/engine-design.md
+> Please ask me anything that needs to be decided. But optional features can be implemented later skip them.
+
+**AI output summary:**
+- First these questions aswered like this:
+   - Queue order: first in, first out, but later requests can skip ahead of one that can't be placed (§5.1).
+  - Server choice: the server where the request would finish soonest, with ties going to the lowest server id (§5.2).
+  - Overload: a request too big for every server is dropped at arrival. The maximum wait and maximum queue length are both off by default (§6).
+  - Shared-mode CPU: each request gets an exact equal share, and CPU a request doesn't need in its last tick is wasted (§3.2).
+- Dropped requests get a reason field.
+- Design document created.
