@@ -42,6 +42,7 @@ Both models share these rules:
 - A server runs **any number of requests at once**, as long as the memory reserved by all of them fits within `mem_mb`.
 - A server accepts a request if `mem_used + request.mem_mb <= server.mem_mb` and fewer than `rate_limit_per_sec` requests have started on it this tick.
 - **CPU split:** in each tick, every running request on a server gets exactly `cpu_units_per_tick / N`, where N is the number of requests running during that tick. The math uses `fractions.Fraction`, so there is no floating-point drift.
+- **The share is computed once per tick:** `advance()` first takes the set of requests that ran during the tick that just ended, computes `share = cpu / len(set)`, and applies it to every request in the set. Only after that does it remove the finished ones. Removing a request in the middle of the loop would give the requests after it a bigger share in the same tick.
 - **No reuse of leftover CPU:** if a request needs less than its share in its last tick, the rest of that share is unused that tick. This follows the spec's "distributes evenly" wording.
 - A request finishes once its remaining work is `<= 0`.
 - A request that starts at tick `t` counts toward N from tick `t` onward. So a request alone on a server finishes at exactly the same tick in both models.
@@ -150,7 +151,8 @@ Among the servers that can accept the request **now**, pick the one with the sma
 | Input | Rule |
 |---|---|
 | `servers.json` | Must contain `servers` (non-empty) and unique ids. If present, `tick_seconds` must be 1. `cpu_units_per_tick >= 1`, `mem_mb >= 1`, `rate_limit_per_sec >= 1`. |
-| `requests.csv` | Must have the columns `t, request_id, work_units, mem_mb`. Ids are unique. `t >= 0`, `work_units >= 1`, `mem_mb >= 0`. Rows may be in any order; the engine sorts by `t` and keeps row order within the same tick. |
+| `requests.csv` | Must have the columns `t, request_id, work_units, mem_mb`, and at least one row (a file with only the header is rejected). `request_id` has surrounding whitespace trimmed, as the validator does. The trimmed id must not be blank, must be unique, and is the id written to the trace. `t >= 0`, `work_units >= 1`, `mem_mb >= 0`. Rows may be in any order; the engine sorts by `t` and keeps row order within the same tick. |
+| Config | If set, `max_wait_ticks` and `max_queue_length` must be integers `>= 0`. Zero is valid for both: `max_wait_ticks = 0` means "start at arrival or drop", and `max_queue_length = 0` means "no waiting queue". |
 
 - Invalid input fails fast with a clear error message (exit code 1). The engine never produces a partial or misleading trace.
 - `work_units = 0` is rejected on purpose. That request would start and finish in the same tick, and the validator's alphabetical event sort would then report it as finished before it started.
@@ -214,16 +216,18 @@ python -m engine.cli \
 
 1. **Golden test:** the sample data in `exclusive` mode produces the same set of events as `project-info/run.jsonl` (see §11).
 2. **Validator test:** random inputs from a fixed seed, including overload cases, run in `exclusive` mode, and every result must pass the unmodified `validate_run.py`.
-3. **Determinism test:** running twice gives byte-identical output.
-4. **Unit tests:**
+3. **Lifecycle test:** the validator doesn't notice a request that arrives and is then never started or dropped. A trace with only the four sample arrivals passes it. So for every generated case, the test also checks each request's events in the order they were written. They must be exactly `ARRIVED → STARTED → FINISHED` or `ARRIVED → DROPPED`. `simulate()` checks the same thing at the end of every run and raises an error if any request is left over.
+4. **Determinism test:** running twice gives byte-identical output.
+5. **Unit tests:**
    - rate limit in `shared` mode;
    - every drop reason;
    - skip-ahead behavior;
    - ties between servers;
    - Fraction math in the CPU split (for example 10 CPU across 3 requests);
    - fast-forward over idle gaps;
-   - input validation errors.
-5. **Validator for shared mode:** add `--mode shared` to `validate_run.py`. It replays the trace with the §3.2 rules and checks finish times and total memory per tick. Without the flag, the validator behaves exactly as the original. It will be written separately from the engine code, so the engine doesn't end up checking itself.
+   - input validation errors, including the edge cases in §8.
+6. **Shared-mode CPU split test:** one server with 10 CPU per tick. Two requests with 1 and 6 work units both start at t=0, and each gets 5 during tick 0. The 1-unit request finishes at t=1. The 6-unit request has 1 unit left, gets the full 10 in tick 1, and finishes at t=2. Then swap their request ids and check that each workload finishes at the same tick, so the result doesn't depend on id order.
+7. **Validator for shared mode:** add `--mode shared` to `validate_run.py`. It replays the trace with the §3.2 rules and checks finish times and total memory per tick. Without the flag, the validator behaves exactly as the original. It will be written separately from the engine code, so the engine doesn't end up checking itself.
 
 ## 11. Worked example (sample data, exclusive mode)
 

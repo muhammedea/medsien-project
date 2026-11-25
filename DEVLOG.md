@@ -71,7 +71,7 @@ Mostly correct, for the fisrt step Schedule the queue, not just new arrivals. Al
      otherwise wait; drop if over queue length / max-wait policy
 ```
 
-## 2026-11-25: Clarification email
+## 2026-11-25: Clarification email and Design Document
 
 - I have got the aswers from the Medsien team
 > 1. Execution model: Your plan works. Make single request per server the default so validate_run.py passes. Concurrent mode as described in Section 4 is a welcome extra but not required. If you build it, please explain the difference between the two modes briefly in your README.
@@ -93,3 +93,21 @@ Mostly correct, for the fisrt step Schedule the queue, not just new arrivals. Al
   - Shared-mode CPU: each request gets an exact equal share, and CPU a request doesn't need in its last tick is wasted (§3.2).
 - Dropped requests get a reason field.
 - Design document created.
+
+## 2026-11-25: Review Design Document
+- I used Codex for reviewing the design document
+
+**Prompt (codex):**
+> This is a take home project that I've got. 
+> First read the project-info folder then look at the engine-design. Do you see any problem? Would you recommend anything?
+
+**AI output summary:**
+It find 3 issues. I asked it to make it a review document. 
+
+**Prompt (CC):**
+> Another agent has done a review for your design in docs/engine-design-review.md Look into it and ıs there anything worth changeing. Defend your design.
+
+**AI output summary:**
+I accepted all three points and updated. None of them changes a design decision: two make the doc more precise and one closes a real gap in the tests
+
+- I have examined the design manually, specificly Section 4 (The tick loop).
