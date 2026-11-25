@@ -111,3 +111,45 @@ It find 3 issues. I asked it to make it a review document.
 I accepted all three points and updated. None of them changes a design decision: two make the doc more precise and one closes a real gap in the tests
 
 - I have examined the design manually, specificly Section 4 (The tick loop).
+
+## 2026-11-25: High-level Design
+
+**Prompt (Codex):**
+> I want you to give me advice on project structure.
+> My Notes: There is 2 sub project backend and frontend. A Docker compose file at the top. Backend will be Python FastAPI. Frontend should be vite, react, typescript project.
+> Also comment on should I use a database.
+
+**AI output summary:**
+Folder structure and key points. It has recommended sqlite as database is enough. 
+
+**Prompt (Codex):**
+> Where should I store run results? In database or a folder that is mounted.
+
+**AI output summary:**
+I’d store each run in a folder on a mounted volume and use SQLite for the editable server configuration. The assignment requires a downloadable run.jsonl
+
+**Prompt (Codex):**
+> Ok this is good. Also sqlite should have runs table in it. I want you to make this a very concise design document as high level design. 
+
+**AI output summary:**
+It has created docs/high-level-design-codex.md file. (I renamed)
+
+**Prompt (CC):**
+> I want you to create a high level design. about project structure. Make it concise. Use docs/high-level-design-codex.md as entry point and improve on it. Also create a concise AGENTS.md file. Also update readme.
+
+**AI output summary:**
+
+It has created docs/high-level-design.md file. Created AGENTS.md and README. It has made runid the hash of the inputs. For re-runs It suggests ENGINE_VERSION. 
+
+**Prompt (CC):**
+> Maybe we should not make runid a hash. Just use the timestamp as id or a monotonically increasing int. Do we need run cache?
+> This will not affect the assignment requirements, right? If not just do the changes.
+
+**AI output summary:**
+Run ids are now auto-increment integers and there's no result cache.
+
+**Prompt (CC):**
+> Design says "runs with the same `input_hash` must have the same `trace_hash`." Is this a different thing?
+
+**AI output summary:**
+There was a mistake. It has done some documentation changes.
