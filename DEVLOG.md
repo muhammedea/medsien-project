@@ -194,3 +194,12 @@ I accepted all four findings, but I fixed two of them differently from what the 
 2. Slow runs (medium): accepted, and it was worse than the review measured.
 3. README command can't be pasted into a shell (low): accepted.
 4. Order of queue-full drop events (low): I kept the code and fixed the doc.
+
+## 2026-11-26: UI and API Implementation
+
+**Prompt (CC):**
+> I want you to create a UI requirements document. What I understand, we will have 2 main menu item. Servers and Runs. For runs user can upload csv. Also recommend a simultaion visualization UI in run details. Sample csv should be default one. Because requirement says reviewer should run sample tast easily
+
+**AI output summary:**
+docs/ui-requirements.md file is created
+

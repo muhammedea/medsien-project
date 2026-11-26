@@ -90,5 +90,6 @@ Details are in the [engine design](docs/engine-design.md).
 
 - [High-level design](docs/high-level-design.md): architecture, API, storage, run lifecycle
 - [Engine design](docs/engine-design.md): execution models, scheduling, rate limiting, determinism, assumptions
+- [UI requirements](docs/ui-requirements.md): screens, the run upload flow, and the run visualization
 - [DEVLOG](DEVLOG.md): development log, including how AI was used (prompts and verification)
 - [AGENTS.md](AGENTS.md): guidance for AI coding agents working in this repository

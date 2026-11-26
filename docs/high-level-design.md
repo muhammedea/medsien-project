@@ -10,7 +10,7 @@ browser ──> frontend (nginx :8080) ──/api──> backend (FastAPI :8000)
 | Subproject | Stack | Responsibility |
 | --- | --- | --- |
 | `frontend/` | Vite, React, TypeScript, nginx | Manage servers, start runs, view summaries, download traces. nginx serves the built app and forwards `/api` to the backend, so the browser talks to one origin and no CORS setup is needed. |
-| `backend/` | Python 3.12, FastAPI, SQLAlchemy, SQLite | API, storage, and running simulations. The API and the CLI call the same `engine.simulate()`. |
+| `backend/` | Python 3.14, FastAPI, SQLAlchemy, SQLite | API, storage, and running simulations. The API and the CLI call the same `engine.simulate()`. |
 
 ## Repository layout
 
@@ -47,6 +47,9 @@ docker-compose.yml
 | `GET /api/runs` | List past runs |
 | `GET /api/runs/{id}` | A run's summary and config |
 | `GET /api/runs/{id}/run.jsonl` | Download the trace |
+| `GET /api/runs/{id}/inputs/{name}` | Download a saved input file: `servers.json`, `requests.csv` or `config.json` |
+| `GET /api/runs/{id}/timeline` | Data for the run visualization, worked out from the saved files (see [UI requirements](ui-requirements.md) §4.4) |
+| `GET /api/samples/requests.csv` | The sample requests file, used as a template in the upload form |
 
 Input is validated in one place, the engine's loaders. The API turns their `InputError` into a `422` response, so the CLI and the API apply exactly the same rules.
 
