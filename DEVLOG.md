@@ -214,4 +214,36 @@ docs/ui-requirements.md file is created
 **AI output summary:**
 The backend API and the full dashboard from docs/ui-requirements.md are built. Including the simulation visualitation.
 
-- UI implementation is tested manually by using Docker.
+**Verification:**
+- I have run the UI with Docker compose.
+- Tested the server list and management
+- Tested example runs
+
+## 2026-11-26: UI and API Implementation
+
+**Prompt (CC):**
+> Look into project-info again. According to the requirements. Is there any missing feature or any problem?
+
+**AI output summary:**
+3 missing things:
+- no shared mode for validator
+- rate-limiting docs are missing
+- there is only one placement strategy (earliest_finish)
+
+**Prompt (CC):**
+> Add another validator don't change the original one. validate_run_shared.
+> Add the rate-limiting strategy docs in readme
+> tell me what placement strategies can be added
+
+**AI output summary:**
+
+- validate_run_shared.py
+- Rate-limiting section in the README added
+- Example placement strategies
+  - First fit: The lowest server_id that fits
+  - Least loaded: The fewest running requests, or the lowest memory use as a fraction
+  - Best fit (memory): The least memory left after placing
+  - Worst fit (memory): The most memory left after placing
+  - Fastest CPU: The highest cpu_units_per_tick
+  - Least slowdown (shared): The server where adding the request delays the requests already running there the least
+

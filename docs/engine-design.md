@@ -46,7 +46,7 @@ Both models share these rules:
 - **No reuse of leftover CPU:** if a request needs less than its share in its last tick, the rest of that share is unused that tick. This follows the spec's "distributes evenly" wording.
 - A request finishes once its remaining work is `<= 0`.
 - A request that starts at tick `t` counts toward N from tick `t` onward. So a request alone on a server finishes at exactly the same tick in both models.
-- The provided validator rejects `shared` traces (overlapping runs, finish times that assume full CPU). A `--mode shared` option for the validator is planned (see §10).
+- The provided validator rejects `shared` traces (overlapping runs, finish times that assume full CPU). They are checked by `validate_run_shared.py` instead (see §10).
 
 ### 3.3 Implementation note
 
@@ -181,7 +181,8 @@ backend/
     output.py            # serialize events to JSONL
     cli.py               # python -m engine.cli ...
   validator/
-    validate_run.py      # copy of the provided validator (extended later for shared mode)
+    validate_run.py      # the provided validator, unchanged (exclusive mode)
+    validate_run_shared.py  # validator for shared mode
   tests/
 ```
 
@@ -237,7 +238,13 @@ python -m engine.cli \
    - input validation errors, including the edge cases in §8.
 6. **Skipping test:** every random case, in both modes, gives identical events with and without skipping quiet ticks (§4). A timing test covers a 10⁹-unit request with a large queue behind it.
 7. **Shared-mode CPU split test:** one server with 10 CPU per tick. Two requests with 1 and 6 work units both start at t=0, and each gets 5 during tick 0. The 1-unit request finishes at t=1. The 6-unit request has 1 unit left, gets the full 10 in tick 1, and finishes at t=2. Then swap their request ids and check that each workload finishes at the same tick, so the result doesn't depend on id order.
-8. **Validator for shared mode:** add `--mode shared` to `validate_run.py`. It replays the trace with the §3.2 rules and checks finish times and total memory per tick. Without the flag, the validator behaves exactly as the original. It will be written separately from the engine code, so the engine doesn't end up checking itself.
+8. **Validator for shared mode:** `validator/validate_run_shared.py` is a separate script, so `validate_run.py` stays identical to the provided one (a test compares the two files). It reuses only the original's input loaders. It checks:
+   - the lifecycle, including requests that arrive and never end (the original misses these);
+   - starts per server per tick against the rate limit;
+   - total memory of the requests running on each server at every tick, with finishes at a tick freeing memory before starts at that tick;
+   - finish times, by replaying the trace's start times per server with the §3.2 CPU split. The replay jumps from one change in the running set to the next, so long runs are cheap.
+
+   It is written separately from the engine code, so the engine doesn't end up checking itself. Every random case in `shared` mode must pass it, and so must every `exclusive` case, since one request per server is a special case of the shared rules. Changing any single finish time by one tick in the random shared cases makes it fail.
 
 ## 11. Worked example (sample data, exclusive mode)
 

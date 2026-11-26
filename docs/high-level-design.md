@@ -18,7 +18,7 @@ browser ──> frontend (nginx :8080) ──/api──> backend (FastAPI :8000)
 backend/
   engine/        # pure simulation library, stdlib only, no web or database code
   api/           # FastAPI app: routes, schemas, storage, run service
-  validator/     # validate_run.py (copy of the provided one; gains a --mode shared option later)
+  validator/     # validate_run.py (the provided one, unchanged) and validate_run_shared.py (shared mode)
   fixtures/      # default servers.json + requests.csv (copied from project-info/)
   tests/
   Dockerfile
