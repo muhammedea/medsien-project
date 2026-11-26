@@ -175,3 +175,22 @@ There was a mistake. It has done some documentation changes.
 **AI output summary:**
 
 The engine and CLI are built and tested, and the project structure is in place. The Docker images haven't been built yet.
+
+**Prompt (Codex):**
+> Another agent implemented the engine. I want you to read docs/high-level-design.md and docs/engine-design.md again and look into the implementation. Tell me your opinion. Do you see any major problem? Do you have any suggestions?
+
+**AI output summary:**
+The engine is ready for API integration after one submission blocker is fixed. Review is stored in docs/engine-implementation-review.md
+
+**Prompt (CC):**
+> I have committed everything.
+> Another agent has done a review on this implementation. It is in: docs/engine-implementation-review.md
+> Look into it and is there anything worth changing? Defend your implementation.
+
+**AI output summary:**
+
+I accepted all four findings, but I fixed two of them differently from what the review suggested. 1,296 tests now pass, including on a copy of the repo that contains only the files Git will commit.
+1. Test fixture never committed (high): accepted, my mistake.
+2. Slow runs (medium): accepted, and it was worse than the review measured.
+3. README command can't be pasted into a shell (low): accepted.
+4. Order of queue-full drop events (low): I kept the code and fixed the doc.

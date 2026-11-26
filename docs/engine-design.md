@@ -83,7 +83,8 @@ At tick `t`, the engine runs these steps in this order:
      else:
          leave it in the queue          (later requests may still start)
    if max_queue_length is set and the queue is longer than that:
-     drop the newest requests until it fits: log REQUEST_DROPPED (reason "queue_full")
+     keep the oldest max_queue_length requests; drop the rest, logging
+     REQUEST_DROPPED (reason "queue_full") for each, in queue order
 ```
 
 Why this order:
@@ -91,7 +92,15 @@ Why this order:
 - **Arrivals before scheduling:** a request can start at its own arrival tick.
 - **Progress, then finishes:** an event at `t` describes the state after tick `t-1` has been processed, as the spec's PS says. A request started at `t` first gets CPU during tick `t` and is first checked for completion at `t+1`.
 
-**Fast-forward:** when nothing is running and the queue is empty, the loop jumps straight to the next arrival tick. This changes no output; it only skips ticks where nothing happens.
+**Skipping quiet ticks:** between ticks, the state can only change at four kinds of moment:
+- the next arrival;
+- the next finish (only then are memory and concurrency slots freed);
+- the next max-wait deadline of a queued request;
+- the next tick, if some queued request was held back only by a rate limit (the start counters reset every tick).
+
+The loop jumps straight to the earliest of these. While no request starts or finishes, each server's CPU share stays the same, so the skipped ticks' work is applied in one step (`remaining -= share × ticks`).
+- This changes no output: a test runs every random case both ways (skipping, and `step_every_tick=True`) and requires identical events.
+- It keeps runtime proportional to the number of events, not to simulated time. One request of 10⁹ work units on a 1-CPU server with 500 requests queued behind it finishes in milliseconds. Visiting every tick took 16 s even for a 10⁶-unit request with 200 queued.
 
 **Termination:** the loop stops when every request has arrived and the queue and all servers are empty. It always stops: every running request gets a positive CPU share each tick, and every queued request either fits some server (which eventually becomes free) or was dropped at arrival.
 
@@ -123,7 +132,7 @@ Among the servers that can accept the request **now**, pick the one with the sma
 |---|---|---|
 | The request's `mem_mb` is larger than every server's `mem_mb` | Dropped at arrival, never queued | `no_server_fits` |
 | The request has waited `max_wait_ticks` and still can't be placed | Dropped during scheduling | `max_wait_exceeded` |
-| The queue is longer than `max_queue_length` after scheduling | Newest requests dropped first (tail drop) | `queue_full` |
+| The queue is longer than `max_queue_length` after scheduling | Tail drop: the oldest requests are kept and the newest dropped. The drop events are written in queue order. | `queue_full` |
 
 - Both limits are **off by default**, giving an unbounded queue. That way the sample data produces the expected trace with no drops.
 - `max_wait_ticks = 0` means "start at arrival or drop".
@@ -226,8 +235,9 @@ python -m engine.cli \
    - Fraction math in the CPU split (for example 10 CPU across 3 requests);
    - fast-forward over idle gaps;
    - input validation errors, including the edge cases in §8.
-6. **Shared-mode CPU split test:** one server with 10 CPU per tick. Two requests with 1 and 6 work units both start at t=0, and each gets 5 during tick 0. The 1-unit request finishes at t=1. The 6-unit request has 1 unit left, gets the full 10 in tick 1, and finishes at t=2. Then swap their request ids and check that each workload finishes at the same tick, so the result doesn't depend on id order.
-7. **Validator for shared mode:** add `--mode shared` to `validate_run.py`. It replays the trace with the §3.2 rules and checks finish times and total memory per tick. Without the flag, the validator behaves exactly as the original. It will be written separately from the engine code, so the engine doesn't end up checking itself.
+6. **Skipping test:** every random case, in both modes, gives identical events with and without skipping quiet ticks (§4). A timing test covers a 10⁹-unit request with a large queue behind it.
+7. **Shared-mode CPU split test:** one server with 10 CPU per tick. Two requests with 1 and 6 work units both start at t=0, and each gets 5 during tick 0. The 1-unit request finishes at t=1. The 6-unit request has 1 unit left, gets the full 10 in tick 1, and finishes at t=2. Then swap their request ids and check that each workload finishes at the same tick, so the result doesn't depend on id order.
+8. **Validator for shared mode:** add `--mode shared` to `validate_run.py`. It replays the trace with the §3.2 rules and checks finish times and total memory per tick. Without the flag, the validator behaves exactly as the original. It will be written separately from the engine code, so the engine doesn't end up checking itself.
 
 ## 11. Worked example (sample data, exclusive mode)
 

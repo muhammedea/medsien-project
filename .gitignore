@@ -8,7 +8,7 @@ ehthumbs.db
 Thumbs.db
 
 # Runtime data
-data/
+/data/
 
 # Python
 .venv/

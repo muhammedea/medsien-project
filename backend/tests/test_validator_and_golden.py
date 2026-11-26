@@ -72,5 +72,15 @@ def test_same_input_gives_byte_identical_output(seed, mode):
     assert first == second
 
 
+@pytest.mark.parametrize("mode", ["exclusive", "shared"])
+@pytest.mark.parametrize("seed", range(300))
+def test_skipping_ticks_never_changes_output(seed, mode):
+    servers, requests, config = random_case(seed)
+    config = dataclasses.replace(config, execution_mode=mode)
+    assert simulate(servers, requests, config).events == simulate(
+        servers, requests, config, step_every_tick=True
+    ).events
+
+
 def test_default_config_is_exclusive():
     assert SimulationConfig().execution_mode == "exclusive"

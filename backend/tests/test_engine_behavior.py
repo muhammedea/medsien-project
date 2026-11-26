@@ -1,6 +1,9 @@
 """Unit tests for scheduling, execution models and overload rules."""
 
+import time
 from fractions import Fraction
+
+import pytest
 
 from engine import SimulationConfig, simulate
 from engine.execution import ServerState, SharedModel, cpu_share
@@ -122,6 +125,31 @@ def test_fast_forward_over_idle_gaps():
     assert finish_times(result) == {"a": 1, "b": 10**9 + 1}
 
 
+@pytest.mark.parametrize("mode", ["exclusive", "shared"])
+def test_long_requests_with_a_big_queue_are_fast(mode):
+    # One huge request on a 1-CPU server with 500 queued behind it. Visiting every tick
+    # would take about a billion iterations; skipping to the next event takes a handful.
+    servers = [srv("s1", 1, 100)]
+    rows = [(0, "huge", 10**9, 100)] + [(0, f"q{i}", 1, 1) for i in range(500)]
+    config = SimulationConfig(execution_mode=mode)
+    started = time.perf_counter()
+    result = simulate(servers, reqs(*rows), config)
+    assert time.perf_counter() - started < 2
+    assert finish_times(result)["huge"] == 10**9
+
+
+def test_skip_respects_max_wait_deadlines():
+    config = SimulationConfig(max_wait_ticks=7)
+    result = simulate([srv("s1", 1, 100)], reqs((0, "long", 1000, 1), (3, "waiter", 1, 1)), config)
+    assert (10, "REQUEST_DROPPED", "waiter", None, "max_wait_exceeded") in trace(result)
+
+
+def test_skip_respects_rate_limit_resets():
+    # Rate limit 1, plenty of memory: one start per tick even though nothing finishes.
+    result = simulate([srv("s1", 1, 1000, rate=1)], reqs(*[(0, f"r{i}", 1000, 1) for i in range(4)]), SHARED)
+    assert [e.t for e in result.events if e.event == "REQUEST_STARTED"] == [0, 1, 2, 3]
+
+
 # ----------------------------------------------------------------- overload
 
 
@@ -146,11 +174,14 @@ def test_max_wait_drops_after_waiting_that_long():
     assert (2, "REQUEST_DROPPED", "b", None, "max_wait_exceeded") in trace(result)
 
 
-def test_queue_full_drops_newest_first():
+def test_queue_full_keeps_oldest_and_drops_newest_in_queue_order():
     config = SimulationConfig(max_queue_length=1)
-    result = simulate([srv("s1", 10, 1000)], reqs((0, "a", 50, 1), (0, "b", 10, 1), (0, "c", 10, 1)), config)
-    dropped = [(e.request_id, e.reason) for e in result.events if e.event == "REQUEST_DROPPED"]
-    assert dropped == [("c", "queue_full")]
+    rows = [(0, "a", 50, 1), (0, "b", 10, 1), (0, "c", 10, 1), (0, "d", 10, 1)]
+    result = simulate([srv("s1", 10, 1000)], reqs(*rows), config)
+    dropped = [(e.t, e.request_id, e.reason) for e in result.events if e.event == "REQUEST_DROPPED"]
+    # "b" (oldest waiting) is kept; "c" and "d" are dropped, events in FIFO order.
+    assert dropped == [(0, "c", "queue_full"), (0, "d", "queue_full")]
+    assert start_servers(result) == {"a": "s1", "b": "s1"}
 
 
 def test_queue_length_zero_still_allows_immediate_starts():

@@ -11,12 +11,13 @@ from dataclasses import dataclass, field
 from fractions import Fraction
 from typing import ClassVar, Protocol
 
-from .models import RequestSpec, ServerSpec
+from .models import RequestSpec, ServerSpec, SimulationInvariantError
 
 Work = int | Fraction
 
 
-def ceil_div(a: int, b: int) -> int:
+def ceil_div(a: Work, b: Work) -> int:
+    """Exact ceiling division for ints and Fractions."""
     return -(-a // b)
 
 
@@ -64,6 +65,14 @@ class ExecutionModel(Protocol):
         """Ticks the request would need if started on this server now, assuming the load stays the same."""
         ...
 
+    def ticks_until_next_finish(self, server: ServerState) -> int | None:
+        """How many more advance() calls until the first running request finishes. None if idle."""
+        ...
+
+    def advance_many(self, server: ServerState, ticks: int) -> None:
+        """Apply `ticks` ticks of CPU at once. Caller guarantees no request finishes during them."""
+        ...
+
 
 class SharedModel:
     """Spec Section 4: any number of concurrent requests while their total memory fits."""
@@ -94,6 +103,25 @@ class SharedModel:
     def estimate_runtime(self, server: ServerState, req: RequestSpec) -> int:
         sharers = len(server.running) + 1
         return ceil_div(req.work_units * sharers, server.spec.cpu_units_per_tick)
+
+    # Used by the simulator to skip ticks in which nothing observable happens.
+    # The share stays the same while no request starts or finishes, so N ticks of
+    # progress equal one subtraction of N * share.
+
+    def ticks_until_next_finish(self, server: ServerState) -> int | None:
+        if not server.running:
+            return None
+        share = cpu_share(server.spec.cpu_units_per_tick, len(server.running))
+        return min(ceil_div(r.remaining, share) for r in server.running)
+
+    def advance_many(self, server: ServerState, ticks: int) -> None:
+        if ticks <= 0 or not server.running:
+            return
+        share = cpu_share(server.spec.cpu_units_per_tick, len(server.running))
+        for r in server.running:
+            r.remaining -= share * ticks
+            if r.remaining <= 0:
+                raise SimulationInvariantError(f"request '{r.request.id}' would finish inside a skipped interval")
 
 
 class ExclusiveModel(SharedModel):

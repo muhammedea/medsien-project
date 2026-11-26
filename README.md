@@ -26,8 +26,14 @@ docker compose up --build
 ```bash
 docker compose run --rm backend python -m engine.cli \
   --servers fixtures/servers.json --requests fixtures/requests.csv \
-  --out /data/run.jsonl [--mode exclusive|shared] [--max-wait N] [--max-queue N]
+  --out /data/run.jsonl
 ```
+
+Optional flags:
+- `--mode exclusive` (default) or `--mode shared`;
+- `--max-wait N`: drop requests that have waited N ticks without starting;
+- `--max-queue N`: keep at most N requests waiting;
+- `--config config.json`: read these settings from a file; flags given on the command line override it.
 
 The trace is written to `./data/run.jsonl` on the host. Re-running the command overwrites it.
 

@@ -50,6 +50,11 @@ docker-compose.yml
 
 Input is validated in one place, the engine's loaders. The API turns their `InputError` into a `422` response, so the CLI and the API apply exactly the same rules.
 
+**Workload limit:** runs happen right away, inside the HTTP request.
+- The engine's running time grows with the number of events, not with simulated time (see engine design §4).
+- The API therefore limits the size of uploaded request files (configurable maximum size and row count) and returns `413` when a file is too large.
+- The CLI has no limit.
+
 ## Storage
 
 Compose bind-mounts `./data` on the host to `/data` in the backend. A bind mount is used instead of a named volume so generated traces can be opened directly on the host. `data/` is excluded from Git.

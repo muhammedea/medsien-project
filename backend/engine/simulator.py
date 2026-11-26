@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any
 
-from .execution import EXECUTION_MODELS, ServerState
+from .execution import EXECUTION_MODELS, ExecutionModel, ServerState
 from .loaders import validate_config, validate_requests, validate_servers
 from .models import (
     DROP_MAX_WAIT_EXCEEDED,
@@ -37,8 +37,15 @@ def simulate(
     servers: Sequence[ServerSpec],
     requests: Sequence[RequestSpec],
     config: SimulationConfig | None = None,
+    *,
+    step_every_tick: bool = False,
 ) -> SimulationResult:
-    """Run the simulation. Pure: no I/O, no clock, no randomness."""
+    """Run the simulation. Pure: no I/O, no clock, no randomness.
+
+    By default, ticks in which nothing can happen are skipped (see _next_event_tick).
+    `step_every_tick=True` visits every tick while work is in progress. It exists so tests
+    can check that skipping never changes the output.
+    """
     config = validate_config(config or SimulationConfig())
     servers = validate_servers(servers)
     requests = validate_requests(requests)
@@ -100,15 +107,58 @@ def simulate(
         if all_idle and queue:
             # Every queued request fits some idle server, so scheduling must have placed one.
             raise SimulationInvariantError(f"t={t}: requests queued while every server is idle")
-        if all_idle and not queue:
-            if next_arrival == len(arrivals):
-                break
-            t = arrivals[next_arrival].arrival_t  # fast-forward over idle gaps
-        else:
-            t += 1
+        next_t = _next_event_tick(t, states, queue, arrivals, next_arrival, model, config)
+        if next_t is None:
+            break
+        if step_every_tick and not all_idle:
+            next_t = t + 1
+        # Apply the CPU of the skipped ticks t .. next_t-2 in one step; step 2 of the
+        # next iteration applies tick next_t-1 and emits the finishes.
+        for state in states:
+            model.advance_many(state, next_t - t - 1)
+        t = next_t
 
     check_lifecycle(events, requests)
     return SimulationResult(events=events, summary=summarize(events, requests, config))
+
+
+def _next_event_tick(
+    t: int,
+    states: list[ServerState],
+    queue: list[RequestSpec],
+    arrivals: list[RequestSpec],
+    next_arrival: int,
+    model: ExecutionModel,
+    config: SimulationConfig,
+) -> int | None:
+    """The next tick at which something can happen, or None when the simulation is over.
+
+    Between ticks, the state only changes at:
+      - the next arrival;
+      - the next finish (only then is memory or a concurrency slot freed);
+      - the next max-wait deadline of a queued request;
+      - the next tick, if a queued request was held back only by a server's rate limit
+        (the start counters reset every tick).
+    Every tick before the earliest of these would repeat the same scheduling decisions,
+    so it is safe to skip them.
+    """
+    candidates: list[int] = []
+    if next_arrival < len(arrivals):
+        candidates.append(arrivals[next_arrival].arrival_t)
+    for state in states:
+        ticks = model.ticks_until_next_finish(state)
+        if ticks is not None:
+            candidates.append(t + ticks)
+    if queue:
+        if config.max_wait_ticks is not None:
+            candidates.append(min(r.arrival_t for r in queue) + config.max_wait_ticks)
+        rate_limited = any(
+            s.starts_this_tick >= s.spec.rate_limit_per_sec and any(model.can_accept(s, r) for r in queue)
+            for s in states
+        )
+        if rate_limited:
+            candidates.append(t + 1)
+    return min(candidates) if candidates else None
 
 
 def check_lifecycle(events: Sequence[Event], requests: Sequence[RequestSpec]) -> None:
