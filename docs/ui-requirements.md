@@ -90,13 +90,14 @@ Pressing **Run simulation** sends `POST /api/runs`.
 - **Actions:**
   - **Download run.jsonl** (P0);
   - download the saved inputs: `servers.json`, `requests.csv`, `config.json` (P1);
-  - **Run again with the same inputs** (P1). This makes a new run, which should show the "same output" badge.
+  - **Run again with the same inputs** (P1). This calls `POST /api/runs/{id}/rerun`, which makes a new run from the saved snapshot (not the current servers), so it shows the "same output" badge.
 - **Summary cards:** total requests, started, finished, dropped (split by reason), average, p50, p95 and max wait, and the last tick.
 - **Servers used:** the server snapshot of this run.
 - **Events table:**
   - one row per line of `run.jsonl`, with columns `t`, `event`, `request_id`, `server_id`, `reason`;
   - filters for event type, request id and server id;
-  - paginated (P0 shows the table; filters are P1).
+  - paginated (P0 shows the table; filters are P1);
+  - served by `GET /api/runs/{id}/events`, which filters and paginates on the backend.
 - **Visualization** (P2, recommended): see §4.
 
 ## 4. Recommended visualization (P2)
@@ -145,7 +146,9 @@ Proposed response:
 ```json
 {
   "mode": "shared",
+  "first_tick": 0,
   "last_tick": 42,
+  "initial_view": {"start": 0, "end": 42},
   "servers": [{"id": "s1", "cpu_units_per_tick": 10, "mem_mb": 1024, "rate_limit_per_sec": 2}],
   "requests": [
     {"id": "r1", "arrival": 0, "work_units": 20, "mem_mb": 200,
@@ -158,7 +161,9 @@ Proposed response:
 ```
 
 - `series` only has an entry for ticks where a value changed. Between entries, the value stays the same.
-- For large runs (configurable threshold, for example more than 2,000 requests), the Gantt chart starts zoomed in on the first part of the run. The chart and the tick inspector work at any size.
+- `series[i]` is the state after all events of tick `t`. Requests are listed in arrival order `(t, CSV row)`.
+- For large runs (more than `TIMELINE_ZOOM_THRESHOLD` requests, default 2,000), `initial_view` covers the ticks of the first 2,000 arrivals and the Gantt chart starts zoomed in on it. Otherwise it is the whole run. The chart and the tick inspector work at any size.
+- The tick inspector's "events logged at `t`" come from `GET /api/runs/{id}/events?t=…`.
 
 **Rendering:**
 - the Gantt chart and tick inspector in plain SVG;
@@ -170,6 +175,7 @@ There's no other visualization dependency.
 
 - **Stack:** React with React Router, and `fetch` through a small typed API client (`src/api.ts`). No global state library is needed; each screen loads its own data.
 - **Layout:** desktop first; a screen width of 1280 px or more is enough.
+- **Components:** shadcn/ui (Radix + Tailwind CSS v4), lucide icons.
 - **Accessibility:** form fields have labels, keyboard navigation works in dialogs, and colors aren't the only way meaning is shown (drops also use the ✕ symbol).
 - **No authentication.** It's a local, single-user tool.
 - **Numbers shown exactly as the API returns them.** Wait times are in ticks, and only averages are rounded, as the backend already does.

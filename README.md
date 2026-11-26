@@ -3,9 +3,8 @@
 A deterministic, tick-based simulation of a load balancer that spreads requests across servers with different CPU, memory and rate limits. Given the same `servers.json`, `requests.csv` and configuration, it always produces the same `run.jsonl` trace. A React dashboard manages the servers and starts simulation runs.
 
 > **Status:**
-> - **Done:** the engine and CLI (both execution modes) and the Docker setup.
-> - **Skeleton only:** the API has just `/api/health`, and the frontend is a placeholder page.
-> - **Next:** server CRUD, simulation runs through the API, and the dashboard.
+> - **Done:** the engine and CLI (both execution modes), the API (server CRUD, runs, downloads, events, timeline), the dashboard (servers, run history, new run, run details with timeline, tick inspector and load charts) and the Docker setup.
+> - **Next:** `--mode shared` for the validator, and optional features.
 >
 > An example trace generated from the fixtures is in [examples/run.jsonl](examples/run.jsonl).
 
@@ -17,7 +16,7 @@ Requires only Docker with Docker Compose.
 docker compose up --build
 ```
 
-- Dashboard: http://localhost:8080
+- Dashboard: http://localhost:8080. Open **Runs → Run the sample** (or **New run → Run simulation** with the defaults) to reproduce the assignment's sample run, then **Download run.jsonl**.
 - API docs: http://localhost:8000/docs
 - Data (SQLite database and run traces) is stored in `./data/`.
 

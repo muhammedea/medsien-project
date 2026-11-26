@@ -45,27 +45,34 @@ docker-compose.yml
 | `DELETE /api/servers/{id}` | Delete a server |
 | `POST /api/runs` | Start a run. Multipart form with a `config` field (JSON) and an optional `requests` CSV file; without the file, the default fixture is used. Returns the run id and summary. |
 | `GET /api/runs` | List past runs |
-| `GET /api/runs/{id}` | A run's summary and config |
+| `POST /api/runs/{id}/rerun` | Start a new run from the saved inputs (servers, requests, config) of an earlier run, whatever the current servers are |
+| `GET /api/runs/{id}` | A run's summary, config and server snapshot |
 | `GET /api/runs/{id}/run.jsonl` | Download the trace |
+| `GET /api/runs/{id}/events` | The lines of `run.jsonl` in written order, paginated (`offset`, `limit` ≤ 1000) with exact-match filters `event`, `request_id`, `server_id` and `t` |
 | `GET /api/runs/{id}/inputs/{name}` | Download a saved input file: `servers.json`, `requests.csv` or `config.json` |
 | `GET /api/runs/{id}/timeline` | Data for the run visualization, worked out from the saved files (see [UI requirements](ui-requirements.md) §4.4) |
 | `GET /api/samples/requests.csv` | The sample requests file, used as a template in the upload form |
+| `GET /api/limits` | The upload limits, so the browser can check a file before sending it |
+| `GET /api/health` | Health check, used by Docker Compose |
 
 Input is validated in one place, the engine's loaders. The API turns their `InputError` into a `422` response, so the CLI and the API apply exactly the same rules.
 
+**Error bodies:** `{"detail": "<message>"}`, plus `"field"` when the error concerns one input (`id`, `cpu_units_per_tick`, `mem_mb`, `rate_limit_per_sec` for servers; `config`, `requests` or `servers` for runs), so the dashboard can show it next to that field. Invalid run input is rejected before a run row is created. A duplicate server id is also a `422`: the check is the engine's own `validate_servers()` rule.
+
 **Workload limit:** runs happen right away, inside the HTTP request.
 - The engine's running time grows with the number of events, not with simulated time (see engine design §4).
-- The API therefore limits the size of uploaded request files (configurable maximum size and row count) and returns `413` when a file is too large.
+- The API therefore limits the size of uploaded request files and returns `413` when a file is too large. Environment variables: `MAX_UPLOAD_BYTES` (default 2,000,000) and `MAX_REQUEST_ROWS` (default 20,000). nginx allows request bodies up to 4 MB so the API, not nginx, answers.
+- `TIMELINE_ZOOM_THRESHOLD` (default 2,000 requests) sets when the timeline suggests starting the Gantt chart zoomed in.
 - The CLI has no limit.
 
 ## Storage
 
 Compose bind-mounts `./data` on the host to `/data` in the backend. A bind mount is used instead of a named volume so generated traces can be opened directly on the host. `data/` is excluded from Git.
 
-- **SQLite** at `/data/app.sqlite3`:
+- **SQLite** at `/data/app.sqlite3` (`DATA_DIR`, default `<repo>/data` outside Docker):
   - a `servers` table for the editable server settings;
   - a `runs` table with one row per run: an auto-increment `id`, `created_at`, `status` (`pending`, `completed` or `failed`), config, summary counts, `input_hash`, `trace_hash` and `engine_version`.
-  - On first start, the `servers` table is filled from `fixtures/servers.json`.
+  - On first start, the `servers` table is filled from `fixtures/servers.json`. An `app_meta` flag records this, so deleting every server and restarting doesn't bring them back.
 - **Run files** in `/data/runs/<id>/`:
   - the inputs used: `servers.json`, `requests.csv`, `config.json`;
   - the outputs: `run.jsonl`, `summary.json`.
@@ -74,14 +81,19 @@ SQLAlchemy keeps a later move to Postgres down to a change of connection string.
 
 ## Run lifecycle
 
-1. **Snapshot.** The backend gathers the current servers (sorted by id), the request data and the effective config, and turns them into a fixed text form. `input_hash` is the SHA-256 of that text.
+1. **Snapshot.** The backend gathers the current servers (sorted by id), the request data and the effective config, and turns them into a fixed text form: the three files saved with the run.
+   - `servers.json`: `{"tick_seconds": 1, "servers": [...]}`, sorted by id, indented by 2;
+   - `requests.csv`: header `t,request_id,work_units,mem_mb`, then the rows in their original order with trimmed ids, `\n` line endings;
+   - `config.json`: every `SimulationConfig` field, including defaults (`null` = no limit).
+
+   `input_hash` is the SHA-256 of `"servers.json\n" + servers.json + "requests.csv\n" + requests.csv + "config.json\n" + config.json`. So an upload that differs only in whitespace or line endings gets the same hash, and the saved files reproduce the run with the CLI (`--servers servers.json --requests requests.csv --config config.json`).
 2. **Create the record.** A `runs` row is inserted with `status = pending`, and the database assigns the next `id`.
 3. **Simulate and write.** The engine runs on the snapshot. The backend writes the files to a temporary directory under `/data` and renames it to `/data/runs/<id>/` in one step, so a half-written run is never visible.
 4. **Finish.** The row is updated with the summary, `trace_hash` (the SHA-256 of `run.jsonl`) and `status = completed`. If anything fails, the status is set to `failed` instead.
 
 **Versioning:** every run, including a repeat of the same inputs, gets a new numbered version, and nothing is cached. Runs finish in milliseconds, so reusing results wouldn't save anything.
 
-**Showing determinism:** this is the spec's "same inputs → same `run.jsonl`" rule, stored in a form that's easy to check. Runs with the same `input_hash` **and** the same `engine_version` must have the same `trace_hash`. A test checks this, and the dashboard can point out identical runs.
+**Showing determinism:** this is the spec's "same inputs → same `run.jsonl`" rule, stored in a form that's easy to check. Runs with the same `input_hash` **and** the same `engine_version` must have the same `trace_hash`. A test checks this. The run responses carry `same_output_as`: the id of the earliest earlier run with the same `input_hash`, `engine_version` and `trace_hash`, which the dashboard shows as a "same output as #n" badge.
 - `engine_version` is `engine.__version__`, set by hand in `backend/engine/__init__.py`; increase it whenever engine output changes. It's recorded only for traceability, never used to reuse results.
 - Without it, an intended change to engine behavior would look like a determinism failure when old runs are compared with new ones.
 

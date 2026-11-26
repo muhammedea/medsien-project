@@ -203,3 +203,10 @@ I accepted all four findings, but I fixed two of them differently from what the 
 **AI output summary:**
 docs/ui-requirements.md file is created
 
+**Prompt (CC new session):**
+> This is a Project for a Deterministic Load Balancer Simulation.
+> Navigate the repo and understand. Read all the documents in the docs folder.
+> 
+> I want you to implement frontend and the necessary API endpoints in backend according to the document in docs/ui-requirements.md
+> You can use a component library like shadcn-ui.
+> You can ask me if anything is unclear.
