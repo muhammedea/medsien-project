@@ -210,3 +210,8 @@ docs/ui-requirements.md file is created
 > I want you to implement frontend and the necessary API endpoints in backend according to the document in docs/ui-requirements.md
 > You can use a component library like shadcn-ui.
 > You can ask me if anything is unclear.
+
+**AI output summary:**
+The backend API and the full dashboard from docs/ui-requirements.md are built. Including the simulation visualitation.
+
+- UI implementation is tested manually by using Docker.
