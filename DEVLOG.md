@@ -153,3 +153,25 @@ Run ids are now auto-increment integers and there's no result cache.
 
 **AI output summary:**
 There was a mistake. It has done some documentation changes.
+
+## 2026-11-26: High Level Implementation
+
+- I have deleted unnecessary docs.
+- I have prepared a promp for implementing high level structure and the engine. 
+
+**Prompt (CC):**
+> I want you to implement the high level project structure and the engine. 
+> Use docs/high-level-design.md and docs/engine-design.md for implementation details. 
+> 
+> My Notes:
+> - Implement engine in backend. It can be used as a CLI.
+> - For development I should be able tu run without docker
+> - I have uv. You can use it for python environment. 
+> - Add Dockerfiles also
+> - Don't implement frontend for now. Just add necessary files and structure. 
+> 
+> You can ask me anything if anything is not clear?
+
+**AI output summary:**
+
+The engine and CLI are built and tested, and the project structure is in place. The Docker images haven't been built yet.

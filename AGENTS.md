@@ -10,18 +10,36 @@ Take-home assignment: a deterministic load balancer **simulation**. Servers and 
 
 ## Layout
 
-- `backend/engine/`: the pure simulation library. Standard library only. No FastAPI, database, file or clock access in the core.
+- `backend/engine/`: the simulation library. Standard library only.
+  - `simulate()` is pure: no I/O, no clocks, no randomness.
+  - File access is limited to `loaders.py`, `output.py` and `cli.py`.
 - `backend/api/`: the FastAPI app. It may import `engine`; `engine` never imports `api`.
 - `backend/validator/validate_run.py`: the trace validator.
 - `frontend/`: Vite + React + TypeScript.
 - `project-info/`: original assignment files. **Never modify them.**
 
-## Commands (Docker only)
+## Commands
+
+Local development (run from `backend/`, using uv):
+
+```
+uv sync
+uv run pytest
+uv run python -m engine.cli --servers fixtures/servers.json --requests fixtures/requests.csv --out run.jsonl
+uv run uvicorn api.main:app --reload
+```
+
+Docker (what reviewers use):
 
 ```
 docker compose up --build                     # app at :8080, API at :8000
-docker compose run --rm backend pytest        # tests
-docker compose run --rm backend python -m engine.cli --servers ... --requests ... --out ...
+docker compose run --rm backend pytest
+```
+
+If engine output changes, regenerate `examples/run.jsonl` (a test checks that it's up to date):
+
+```
+uv run python -m engine.cli --servers fixtures/servers.json --requests fixtures/requests.csv --out ../examples/run.jsonl --quiet
 ```
 
 ## Rules that must hold

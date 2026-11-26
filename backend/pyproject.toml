@@ -1,0 +1,24 @@
+[project]
+name = "lb-simulation-backend"
+version = "0.1.0"
+description = "Deterministic load balancer simulation: engine, CLI and API"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn>=0.30",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+    "httpx>=0.27",
+]
+
+[tool.uv]
+# Not an installable package: run from backend/ with `python -m engine.cli`, `uvicorn api.main:app`.
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-q"

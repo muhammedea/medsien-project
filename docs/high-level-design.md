@@ -74,7 +74,7 @@ SQLAlchemy keeps a later move to Postgres down to a change of connection string.
 **Versioning:** every run, including a repeat of the same inputs, gets a new numbered version, and nothing is cached. Runs finish in milliseconds, so reusing results wouldn't save anything.
 
 **Showing determinism:** this is the spec's "same inputs → same `run.jsonl`" rule, stored in a form that's easy to check. Runs with the same `input_hash` **and** the same `engine_version` must have the same `trace_hash`. A test checks this, and the dashboard can point out identical runs.
-- `engine_version` is the backend package version. It's recorded only for traceability, never used to reuse results.
+- `engine_version` is `engine.__version__`, set by hand in `backend/engine/__init__.py`; increase it whenever engine output changes. It's recorded only for traceability, never used to reuse results.
 - Without it, an intended change to engine behavior would look like a determinism failure when old runs are compared with new ones.
 
 Editing servers only affects later runs. Past runs keep the server snapshot they were made with, so they can still be explained and reproduced.

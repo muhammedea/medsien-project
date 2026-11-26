@@ -2,7 +2,12 @@
 
 A deterministic, tick-based simulation of a load balancer that spreads requests across servers with different CPU, memory and rate limits. Given the same `servers.json`, `requests.csv` and configuration, it always produces the same `run.jsonl` trace. A React dashboard manages the servers and starts simulation runs.
 
-> **Status:** design phase. The documents under `docs/` are complete; the engine, API and frontend are not implemented yet. The commands below describe the target setup.
+> **Status:**
+> - **Done:** the engine and CLI (both execution modes) and the Docker setup.
+> - **Skeleton only:** the API has just `/api/health`, and the frontend is a placeholder page.
+> - **Next:** server CRUD, simulation runs through the API, and the dashboard.
+>
+> An example trace generated from the fixtures is in [examples/run.jsonl](examples/run.jsonl).
 
 ## How to run
 
@@ -34,6 +39,25 @@ docker compose run --rm backend python validator/validate_run.py \
 docker compose run --rm backend pytest
 ```
 
+## Local development (without Docker)
+
+You need [uv](https://docs.astral.sh/uv/) for the backend and Node.js 22 or newer for the frontend.
+
+```bash
+cd backend
+uv sync                                   # creates .venv (Python 3.14, per .python-version)
+uv run pytest                             # tests
+uv run python -m engine.cli --servers fixtures/servers.json \
+  --requests fixtures/requests.csv --out run.jsonl
+uv run python validator/validate_run.py --servers fixtures/servers.json \
+  --requests fixtures/requests.csv --run run.jsonl
+uv run uvicorn api.main:app --reload      # API on :8000
+
+cd frontend
+npm install
+npm run dev                               # http://localhost:5173, /api forwarded to :8000
+```
+
 ## Execution modes
 
 | | `exclusive` (default) | `shared` |
@@ -41,7 +65,7 @@ docker compose run --rm backend pytest
 | Requests per server | One at a time | Any number, while their total memory fits |
 | CPU | The running request gets all of it | Split evenly among the running requests each tick (exact fractions) |
 | Runtime | `ceil(work_units / cpu_units_per_tick)` | Depends on how many requests share the server |
-| Validator | Passes the provided `validate_run.py` | Needs `validate_run.py --mode shared` |
+| Validator | Passes the provided `validate_run.py` | The provided validator rejects it. Tests check memory, rate limits and request lifecycles; a `--mode shared` validator option is planned. |
 
 `exclusive` matches the provided validator and is the default, as agreed with Medsien. `shared` implements the concurrent model from Section 4 of the assignment.
 
