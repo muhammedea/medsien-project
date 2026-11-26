@@ -1,19 +1,16 @@
 # Medsien Deterministic Load Balancer
 
-A deterministic, tick-based simulation of a load balancer that spreads requests across servers with different CPU, memory and rate limits. Given the same `servers.json`, `requests.csv` and configuration, it always produces the same `run.jsonl` trace. A React dashboard manages the servers and starts simulation runs.
+A deterministic, tick-based simulation of a load balancer that spreads requests across servers with different CPU, memory and rate limits.
 
-> **Status:**
-> - **Done:** the engine and CLI (both execution modes), validators for both modes, the API (server CRUD, runs, downloads, events, timeline), the dashboard (servers, run history, new run, run details with timeline, tick inspector and load charts) and the Docker setup.
-> - **Next:** optional features (more placement strategies, auto-scaling).
->
-> An example trace generated from the fixtures is in [examples/run.jsonl](examples/run.jsonl).
+- Development steps, including how AI was used is logged in DEVLOG.md
+- Assignment Files from Medsien team in project-info folder
 
 ## How to run
 
 Requires only Docker with Docker Compose.
 
 ```bash
-docker compose up --build
+docker compose up -d --build
 ```
 
 - Dashboard: http://localhost:8080. Open **Runs → Run the sample** (or **New run → Run simulation** with the defaults) to reproduce the assignment's sample run, then **Download run.jsonl**.

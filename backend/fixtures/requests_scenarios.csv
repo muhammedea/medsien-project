@@ -1,0 +1,25 @@
+t,request_id,work_units,mem_mb
+0,place-a,10,100
+0,place-b,10,100
+0,place-c,5,100
+3,too-big,10,2000
+4,long-s1,100,600
+5,big-waits,20,900
+5,skip-ahead,10,200
+6,small-after,5,100
+100,after-gap,50,50
+200,burst-01,10,64
+200,burst-02,10,64
+200,burst-03,10,64
+200,burst-04,10,64
+200,burst-05,10,64
+200,burst-06,10,64
+200,burst-07,10,64
+200,burst-08,10,64
+250,zero-mem,7,0
+260, padded-id ,10,100
+270,fit-s1-exact,30,1024
+271,blocked-by-exact,10,600
+300,huge-job,1000000,100
+301,behind-huge,10,100
+50,out-of-order,10,100

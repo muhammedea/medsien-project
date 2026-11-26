@@ -247,3 +247,23 @@ The backend API and the full dashboard from docs/ui-requirements.md are built. I
   - Fastest CPU: The highest cpu_units_per_tick
   - Least slowdown (shared): The server where adding the request delays the requests already running there the least
 
+## 2026-11-26: Finishing PRoject
+
+**Prompt (CC):**
+> I see an order difference on run.jsonl from out output.
+> 
+> In our output: 
+> REQUEST_FINISHED  r1  s1
+> REQUEST_FINISHED  r2  s2
+> REQUEST_STARTED   r3  s1
+> REQUEST_STARTED   r4  s2
+> 
+> but in the provided run.jsonl
+> REQUEST_FINISHED  r2  s2
+> REQUEST_STARTED  r4  s2
+> REQUEST_FINISHED  r1  s1
+> REQUEST_STARTED  r3  s1
+
+**AI output summary:**
+You're right that the lines are in a different order. It's the same set of events, and it doesn't affect validity. This difference is already covered in the docs and the tests.
+
